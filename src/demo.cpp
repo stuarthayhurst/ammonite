@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <string>
 
+#include <random>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -85,38 +87,30 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  //Load models from a set of objects and textures
-  const char* models[][2] = {
-    {"assets/suzanne.obj", "assets/gradient.png"},
-    {"assets/cube.obj", "assets/flat.png"}
-  };
-  int modelCount = sizeof(models) / sizeof(models[0]);
-  int loadedModelIds[modelCount + 1];
-
-  long int vertexCount = 0;
+  //Load cube models
   ammonite::utils::Timer performanceTimer;
-  for (int i = 0; i < modelCount; i++) {
-    //Load model
-    loadedModelIds[i] = ammonite::models::createModel(models[i][0], &success);
+  const char* models[2] = {"assets/cube.obj", "assets/flat.png"};
+  int modelCount = 10000;
+  int loadedModelIds[modelCount];
 
-    //Count vertices
+  //Load model and apply a texture
+  loadedModelIds[0] = ammonite::models::createModel(models[0], &success);
+  ammonite::models::applyTexture(loadedModelIds[0], models[1], true, &success);
+  long int vertexCount = ammonite::models::getVertexCount(loadedModelIds[0]);
+
+  for (int i = 1; i < modelCount; i++) {
+    //Load model and count vertices
+    loadedModelIds[i] = ammonite::models::copyModel(loadedModelIds[0]);
     vertexCount += ammonite::models::getVertexCount(loadedModelIds[i]);
-
-    //Load texture
-    ammonite::models::applyTexture(loadedModelIds[i], models[i][1], true, &success);
   }
 
-  //Copy last loaded model
-  loadedModelIds[modelCount] = ammonite::models::copyModel(loadedModelIds[modelCount - 1]);
-  vertexCount += ammonite::models::getVertexCount(loadedModelIds[modelCount]);
-  ammonite::models::position::setPosition(loadedModelIds[modelCount], glm::vec3(4.0f, 4.0f, 4.0f));
-  ammonite::models::position::scaleModel(loadedModelIds[modelCount], 0.25f);
-  modelCount += 1;
-
-  //Example translation, scale and rotation
-  ammonite::models::position::translateModel(loadedModelIds[0], glm::vec3(-2.0f, 0.0f, 0.0f));
-  ammonite::models::position::scaleModel(loadedModelIds[0], 0.8f);
-  ammonite::models::position::rotateModel(loadedModelIds[0], glm::vec3(0.0f, 0.0f, 0.0f));
+  //Reposition cubes
+  int sideLength = int(sqrt(modelCount));
+  for (int x = 0; x < sideLength; x++) {
+    for (int y = 0; y < sideLength; y++) {
+      ammonite::models::position::setPosition(loadedModelIds[(x * sideLength) + y], glm::vec3(2.0f * float(x), 0.0f, 2.0f * float(y)));
+    }
+  }
 
   //Destroy all models, textures and shaders then exit
   if (!success) {
@@ -126,12 +120,21 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Loaded models in: " << performanceTimer.getTime() << "s (" << vertexCount << " vertices)" << std::endl;
 
-  //Set light source properties
-  int lightId = ammonite::lighting::createLightSource();
-  ammonite::lighting::properties::setPower(lightId, 50.0f);
-  ammonite::lighting::linkModel(lightId, loadedModelIds[modelCount - 1]);
-  ammonite::lighting::updateLightSources();
+  //Create light sources
+  int lightCount = 100;
+  int lightSourceIds[lightCount];
   ammonite::lighting::setAmbientLight(glm::vec3(0.1f, 0.1f, 0.1f));
+
+  glm::vec3 lightSourcePositions[lightCount];
+  for (int i = 0; i < lightCount; i++) {
+    lightSourceIds[i] = ammonite::lighting::createLightSource();
+    lightSourcePositions[i] = glm::vec3((rand() % sideLength), 4.0f, (rand() % sideLength));
+    float red = (rand() % 255 + 0) / 255.0f;
+    float green = (rand() % 255 + 0) / 255.0f;
+    float blue = (rand() % 255 + 0) / 255.0f;
+    ammonite::lighting::properties::setPower(lightSourceIds[i], 50.0f);
+    ammonite::lighting::properties::setColour(lightSourceIds[i], glm::vec3(red, green, blue));
+  }
 
   //Camera ids
   int cameraIds[2] = {0, ammonite::camera::createCamera()};
@@ -176,6 +179,29 @@ int main(int argc, char* argv[]) {
 
     //Process new input since last frame
     ammonite::utils::controls::processInput();
+
+    for (int i = 0; i < lightCount; i++) {
+      bool invalid = true;
+      int currLightSourceId = lightSourceIds[i];
+      float x, z;
+      while (invalid) {
+        x = (rand() % 200 - 100) / 100.0f;
+        z = (rand() % 200 - 100) / 100.0f;
+
+        x += lightSourcePositions[i].x;
+        z += lightSourcePositions[i].z;
+        if (x >= 0.0f and x <= sideLength) {
+          if (z >= 0.0f and z <= sideLength) {
+            invalid = false;
+          }
+        }
+      }
+
+      lightSourcePositions[i] = glm::vec3(x, 4.0f, z);
+      ammonite::lighting::properties::setGeometry(currLightSourceId, lightSourcePositions[i]);
+    }
+
+    ammonite::lighting::updateLightSources();
 
     //Draw the frame
     ammonite::renderer::drawFrame(loadedModelIds, modelCount);
