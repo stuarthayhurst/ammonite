@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
 
   //Performance metrics setup
   ammonite::utils::Timer benchmarkTimer;
+  ammonite::utils::Timer rotTimer;
   performanceTimer.reset();
 
   //Draw frames until window closed
@@ -152,6 +153,7 @@ int main(int argc, char* argv[]) {
     if (performanceTimer.getTime() >= 1.0f) {
       printMetrics(ammonite::renderer::getFrameTime());
       performanceTimer.reset();
+      rotTimer.reset();
     }
 
     //Handle toggling input focus
@@ -176,6 +178,9 @@ int main(int argc, char* argv[]) {
 
     //Process new input since last frame
     ammonite::utils::controls::processInput();
+
+    //Rotate the cube
+    ammonite::models::position::setRotation(loadedModelIds[1], glm::vec3(0.0f, rotTimer.getTime() * 360, 0.0f));
 
     //Draw the frame
     ammonite::renderer::drawFrame(loadedModelIds, modelCount);
