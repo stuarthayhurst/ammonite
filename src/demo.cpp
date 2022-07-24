@@ -91,7 +91,8 @@ int main(int argc, char* argv[]) {
     {"assets/cube.obj", "assets/flat.png"}
   };
   int modelCount = sizeof(models) / sizeof(models[0]);
-  int loadedModelIds[modelCount + 1];
+  int maxNewModels = 25;
+  int loadedModelIds[modelCount + maxNewModels + 1];
 
   long int vertexCount = 0;
   ammonite::utils::Timer performanceTimer;
@@ -163,6 +164,30 @@ int main(int argc, char* argv[]) {
       }
 
       lastInputToggleState = inputToggleState;
+    }
+
+    //Spawn object
+    static bool spawnToggleHeld = false;
+    static int newModels = 0;
+    if (glfwGetKey(window, GLFW_KEY_F) != GLFW_PRESS) {
+      spawnToggleHeld = false;
+    } else if (!spawnToggleHeld) {
+      spawnToggleHeld = true;
+      if (newModels < maxNewModels) {
+        int activeCameraId = ammonite::camera::getActiveCamera();
+        loadedModelIds[modelCount] = ammonite::models::copyModel(loadedModelIds[1]);
+
+        float horiz = glm::degrees(ammonite::camera::getHorizontal(activeCameraId));
+        float vert = glm::degrees(ammonite::camera::getVertical(activeCameraId));
+
+        ammonite::models::position::setRotation(loadedModelIds[modelCount], glm::vec3(vert, horiz, 0.0f));
+        ammonite::models::position::setScale(loadedModelIds[modelCount], 0.25f);
+        ammonite::models::position::setPosition(loadedModelIds[modelCount], ammonite::camera::getPosition(activeCameraId));
+
+        std::cout << "Spawned cube" << std::endl;
+        modelCount++;
+        newModels++;
+      }
     }
 
     //Cycle camera when pressed
